@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -420,46 +421,25 @@ const baht = (n) => (Number(n) || 0).toLocaleString("th-TH", { minimumFractionDi
 const emptyRecord = () => ({ package:"", vat:"", extraNote:"", extraAmount:"", billDate:"", billNumber:"", billingCycle:"", dueDate:"", paid:false, paidDate:"", callMinutes:"", dataUsageGB:"", dataNote:"" });
 const recordTotal = (r) => (Number(r && r.package)||0) + (Number(r && r.vat)||0) + (Number(r && r.extraAmount)||0);
 
-/* ---------- storage helpers (Supabase — ข้อมูลเก็บถาวรบนคลาวด์ เข้าถึงได้ทุกที่/ทุกเครื่อง) ---------- */
-
-const SUPABASE_URL = "https://yyyyivkpomczpiooypraj.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5eXlpdmtwb21jenBpb29wcmFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3NjAyODksImV4cCI6MjEwNDMzNjI4OX0._6O7-qlDoJVhaHLDgolyBr-NCEAPO6kkFp8aS5hx6RQ";
-
-const sbHeaders = {
-  "apikey": SUPABASE_ANON_KEY,
-  "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-  "Content-Type": "application/json",
-};
+/* ---------- storage helpers (localStorage — runs standalone in your own browser) ---------- */
 
 async function storeGet(key, fallback) {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/app_storage?key=eq.${encodeURIComponent(key)}&select=value`, {
-      headers: sbHeaders,
-    });
-    if (!res.ok) return fallback;
-    const rows = await res.json();
-    return rows.length > 0 ? rows[0].value : fallback;
+    const v = window.localStorage.getItem(key);
+    return v !== null ? JSON.parse(v) : fallback;
   } catch (e) { return fallback; }
 }
 async function storeSet(key, value) {
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/app_storage`, {
-      method: "POST",
-      headers: { ...sbHeaders, "Prefer": "resolution=merge-duplicates" },
-      body: JSON.stringify({ key, value, updated_at: new Date().toISOString() }),
-    });
-    return res.ok;
-  } catch (e) { return false; }
+  try { window.localStorage.setItem(key, JSON.stringify(value)); return true; }
+  catch (e) { return false; }
 }
 async function storeListKeys(prefix) {
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/app_storage?key=like.${encodeURIComponent(prefix)}*&select=key`, {
-      headers: sbHeaders,
-    });
-    if (!res.ok) return [];
-    const rows = await res.json();
-    return rows.map(r => r.key);
-  } catch (e) { return []; }
+  const keys = [];
+  for (let i = 0; i < window.localStorage.length; i++) {
+    const k = window.localStorage.key(i);
+    if (k && k.startsWith(prefix)) keys.push(k);
+  }
+  return keys;
 }
 
 /* ---------- small UI atoms ---------- */
@@ -795,7 +775,7 @@ function App() {
       <header style=${{ borderBottom:"1px solid var(--line)", padding:"18px 28px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12 }}>
         <div>
           <div className="ptk-serif" style=${{ fontSize:22, fontWeight:700, letterSpacing:0.2 }}>สมุดบัญชีค่าโทรศัพท์ & อินเทอร์เน็ต</div>
-          <div style=${{ fontSize:12.5, color:"var(--ink-soft)" }}>ระบบบันทึกแทนไฟล์ Excel · ข้อมูลเก็บบนคลาวด์ (Supabase) เข้าถึงได้ทุกที่ทุกเครื่อง</div>
+          <div style=${{ fontSize:12.5, color:"var(--ink-soft)" }}>ระบบบันทึกแทนไฟล์ Excel · ข้อมูลถูกเก็บไว้ในเบราว์เซอร์เครื่องนี้เท่านั้น</div>
         </div>
         <div style=${{ display:"flex", gap:8, alignItems:"center" }}>
           <select value=${month} onChange=${e=>setMonth(Number(e.target.value))} className="ptk-input" style=${{width:150}}>
