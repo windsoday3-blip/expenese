@@ -346,14 +346,15 @@ const html = htm.bind(React.createElement);
 
 const THAI_MONTHS = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน",
   "กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+const THAI_MONTHS_SHORT = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
 
 const DEPTS = ["วน", "สก", "สนญ"];
 
 const COMPANIES = [
-  "บริษัท เคเอส พรีเมียร์ โปรดักส์ จำกัด",
+  "บริษัท เค.เอส.พรีเมียร์ โปรดักส์ จำกัด",
   "บริษัท เคเอส อะโกร จำกัด",
   "บริษัท โฆสน จำกัด",
-  "บริษัท เพิ่มพูนอุตสาหกรรมเกษตร จำกัด",
+  "บริษัท เพิ่มพูนอุตสาหกรรม เกษตร จำกัด",
 ];
 
 const SEED_LINES = [
@@ -379,7 +380,7 @@ const SEED_LINES = [
 
   { id:"L17", type:"internet", company:COMPANIES[1], number:"รหัส 420116847", network:"3BB", user:"วังน้อย (สำนักงาน)", department:"วน", defaultPackage:700, contract:"ไม่ติดสัญญา", active:true },
   { id:"L18", type:"internet", company:COMPANIES[1], number:"รหัส 430305343", network:"3BB", user:"โกดังวังน้อย", department:"วน", defaultPackage:999, contract:"สัญญาหมด 23 ต.ค. 2568", active:true },
-  { id:"L19", type:"internet", company:COMPANIES[1], number:"รหัส 600331080", network:"3BB", user:"สำนักงานกรุงเทพ", department:"สนญ", defaultPackage:590, contract:"ไม่ติดสัญญา", active:true },
+  { id:"L19", type:"internet", company:COMPANIES[1], number:"รหัส 600331080", network:"3BB", user:"สำนักงานกรุงเทพ (SV)", department:"สนญ", defaultPackage:590, contract:"ไม่ติดสัญญา", active:true },
 
   { id:"L20", type:"mobile", company:COMPANIES[1], number:"080-626-1603", network:"AIS (เติมเงิน)", user:"ออฟฟิศวังน้อย (พี่ไอซ์)", department:"วน", defaultPackage:0, contract:"เบอร์เติมเงิน ไม่มีรายเดือน", active:false },
   { id:"L21", type:"mobile", company:COMPANIES[1], number:"062-891-0933", network:"DTAC (ซิมเทพ)", user:"ไม่ใช้งานแล้ว", department:"-", defaultPackage:0, contract:"ยกเลิกใช้งานแล้ว", active:false },
@@ -499,41 +500,68 @@ function StatusStamp({ status }) {
   const map = {
     paid: { label:"ชำระแล้ว", color:"#2F6F62", symbol:"✔" },
     due:  { label:"ใกล้ครบกำหนด", color:"#B08D2E", symbol:"⏰" },
-    over: { label:"เกินกำหนด", color:"#B4472A", symbol:"⚠" },
+    over: { label:"เกินกำหนด", color:"#8B1E1E", symbol:"⚠" },
     open: { label:"รอชำระ", color:"#7A7563", symbol:"⏳" },
   };
   const s = map[status] || map.open;
+  const isOver = status === "over";
   return html`
-    <span className="ptk-mono" style=${{ display:"inline-flex", alignItems:"center", gap:5, padding:"2px 8px", fontSize:11, textTransform:"uppercase", letterSpacing:0.3,
-      color:s.color, border:`1px solid ${s.color}`, borderRadius:2, transform:"rotate(-1deg)", background:"#FFFFFFAA" }}>
+    <span className="ptk-mono" style=${{ display:"inline-flex", alignItems:"center", gap:5, padding: isOver ? "3px 9px" : "2px 8px", fontSize: isOver ? 12 : 11, fontWeight: isOver ? 800 : 400, textTransform:"uppercase", letterSpacing:0.3,
+      color: isOver ? "#fff" : s.color, border:`1px solid ${s.color}`, borderRadius:2, transform:"rotate(-1deg)",
+      background: isOver ? s.color : "#FFFFFFAA", boxShadow: isOver ? "0 0 0 2px #8B1E1E33" : "none" }}>
       <span>${s.symbol}</span> ${s.label}
     </span>
   `;
 }
 
-function SimpleBarChart({ data }) {
-  if (!data.length) return null;
-  const rawMax = Math.max(...data.map(d => d.total), 1);
-  const max = rawMax * 1.15; // เผื่อพื้นที่ด้านบนไว้ให้ตัวเลขไม่โดนตัด
-  const w = 700, h = 280, padL = 50, padB = 50, padT = 26, padR = 10;
+function niceAxisStep(maxVal) {
+  const target = maxVal / 5; // เล็งไว้ประมาณ 5 เส้นกริด
+  const magnitude = Math.pow(10, Math.floor(Math.log10(target || 1)));
+  const residual = target / magnitude;
+  let niceResidual;
+  if (residual > 5) niceResidual = 10;
+  else if (residual > 2) niceResidual = 5;
+  else if (residual > 1) niceResidual = 2;
+  else niceResidual = 1;
+  return niceResidual * magnitude;
+}
+
+function YearCompareChart({ data }) {
+  const rawMax = Math.max(...data.map(d => Math.max(d.prev, d.curr)), 1);
+  const step = niceAxisStep(rawMax);
+  const topTick = Math.ceil(rawMax / step) * step;
+  const ticks = [];
+  for (let v = 0; v <= topTick; v += step) ticks.push(v);
+  const w = 760, h = 300, padL = 16, padB = 40, padT = 30, padR = 72;
   const barAreaW = w - padL - padR;
-  const barW = barAreaW / data.length * 0.6;
-  const gap = barAreaW / data.length;
+  const clusterW = barAreaW / data.length;
+  const barW = clusterW * 0.32;
+  const barGap = clusterW * 0.06;
   return html`
-    <svg viewBox=${`0 0 ${w} ${h}`} style=${{ width:"100%", height:280 }}>
-      ${[0,0.25,0.5,0.75,1].map((t,i) => html`
-        <line key=${i} x1=${padL} x2=${w-padR} y1=${padT + (h-padT-padB)*(1-t)} y2=${padT + (h-padT-padB)*(1-t)} stroke="var(--line)" stroke-dasharray="3,3" />
-      `)}
-      ${data.map((d,i) => {
-        const barH = (d.total / max) * (h - padT - padB);
-        const x = padL + gap*i + (gap - barW)/2;
-        const y = h - padB - barH;
+    <svg viewBox=${`0 0 ${w} ${h}`} style=${{ width:"100%", height:300 }}>
+      ${ticks.map((tv,i) => {
+        const ty = padT + (h-padT-padB) * (1 - tv/topTick);
         return html`
           <g key=${i}>
-            <rect x=${x} y=${y} width=${barW} height=${barH} fill="var(--brass)" rx="3" />
-            <text x=${x + barW/2} y=${h-padB+17} text-anchor="middle" font-size="9.5" fill="var(--ink-soft)">${d.monthName}</text>
-            <text x=${x + barW/2} y=${h-padB+29} text-anchor="middle" font-size="9" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">${d.year}</text>
-            <text x=${x + barW/2} y=${y-4} text-anchor="middle" font-size="9.5" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">${Math.round(d.total).toLocaleString()}</text>
+            <line x1=${padL} x2=${w-padR} y1=${ty} y2=${ty} stroke="var(--line)" stroke-dasharray="3,3" />
+            <text x=${w-padR+10} y=${ty+4} font-size="13" font-weight="600" fill="var(--ink)" font-family="IBM Plex Mono, monospace">${tv.toLocaleString()}</text>
+          </g>
+        `;
+      })}
+      ${data.map((d,i) => {
+        const cx = padL + clusterW*i;
+        const prevH = (d.prev / topTick) * (h - padT - padB);
+        const currH = (d.curr / topTick) * (h - padT - padB);
+        const prevX = cx + clusterW/2 - barGap/2 - barW;
+        const currX = cx + clusterW/2 + barGap/2;
+        return html`
+          <g key=${i}>
+            ${d.prev > 0 && html`<rect x=${prevX} y=${h-padB-prevH} width=${barW} height=${prevH} fill="#EA7317" rx="2" />`}
+            ${d.curr > 0 && html`
+              <rect x=${currX} y=${h-padB-currH} width=${barW} height=${currH} fill="#2563EB" rx="2" />
+              <text x=${currX + barW/2} y=${h-padB-currH-6} text-anchor="middle" font-size="10" font-weight="700" fill="#2563EB" font-family="IBM Plex Mono, monospace">${Math.round(d.curr).toLocaleString()}</text>
+            `}
+            <text x=${cx + clusterW/2} y=${h-padB+20} text-anchor="middle" font-size="13" font-weight="700" fill="var(--ink)">${THAI_MONTHS_SHORT[i]}</text>
           </g>
         `;
       })}
@@ -585,7 +613,7 @@ function App() {
 
   useEffect(() => {
     (async () => {
-      const savedCompanies = await storeGet("ptk:companies", null);
+      let savedCompanies = await storeGet("ptk:companies", null);
       let savedLines = await storeGet("ptk:lines", null);
       if (!savedCompanies) await storeSet("ptk:companies", COMPANIES);
       if (!savedLines) await storeSet("ptk:lines", SEED_LINES);
@@ -645,6 +673,40 @@ function App() {
         await storeSet("ptk:reordered-v2", true);
       }
 
+      // แก้ไขชื่อบริษัท/สถานที่ตามที่ปรับปรุงล่าสุด ให้กับข้อมูลที่เคยบันทึกไว้แล้ว (รันครั้งเดียว)
+      const COMPANY_RENAMES = {
+        "บริษัท เคเอส พรีเมียร์ โปรดักส์ จำกัด": "บริษัท เค.เอส.พรีเมียร์ โปรดักส์ จำกัด",
+        "บริษัท เพิ่มพูนอุตสาหกรรมเกษตร จำกัด": "บริษัท เพิ่มพูนอุตสาหกรรม เกษตร จำกัด",
+      };
+      const SITE_RENAMES = { "L19": "สำนักงานกรุงเทพ (SV)" };
+      const renameFlag = await storeGet("ptk:renamed-v3", false);
+      if (!renameFlag) {
+        if (savedCompanies) {
+          const newCompanies = savedCompanies.map(c => COMPANY_RENAMES[c] || c);
+          if (JSON.stringify(newCompanies) !== JSON.stringify(savedCompanies)) {
+            savedCompanies = newCompanies;
+            await storeSet("ptk:companies", savedCompanies);
+          }
+        }
+        if (savedLines) {
+          let linesChanged = false;
+          savedLines = savedLines.map(l => {
+            let updated = l;
+            if (COMPANY_RENAMES[l.company]) {
+              updated = { ...updated, company: COMPANY_RENAMES[l.company] };
+              linesChanged = true;
+            }
+            if (SITE_RENAMES[l.id] && l.user !== SITE_RENAMES[l.id]) {
+              updated = { ...updated, user: SITE_RENAMES[l.id] };
+              linesChanged = true;
+            }
+            return updated;
+          });
+          if (linesChanged) await storeSet("ptk:lines", savedLines);
+        }
+        await storeSet("ptk:renamed-v3", true);
+      }
+
       setCompanies(savedCompanies || COMPANIES);
       setLines(savedLines || SEED_LINES);
 
@@ -696,11 +758,7 @@ function App() {
       const existing = history[mKey] || await storeGet(`ptk:monthly:${mKey}`, null);
       const base = {};
       lines.filter(l => l.active).forEach(l => {
-        base[l.id] = (existing && existing[l.id]) || {
-          ...emptyRecord(),
-          package: l.defaultPackage || "",
-          vat: l.defaultPackage ? Math.round(l.defaultPackage * 0.07 * 100) / 100 : "",
-        };
+        base[l.id] = (existing && existing[l.id]) || emptyRecord();
       });
       setRecords(base);
       setDirty(false);
@@ -749,16 +807,19 @@ function App() {
   const unpaidCount = lines.filter(l=>l.active).filter(l => computeStatus(records[l.id]) !== "paid").length;
   const overdueCount = lines.filter(l=>l.active).filter(l => computeStatus(records[l.id]) === "over").length;
 
-  const trendData = useMemo(() => {
-    const keys = Object.keys({ ...history, [mKey]: records }).sort();
-    return keys.slice(-12).map(k => {
+  const yearCompareData = useMemo(() => {
+    const getTotal = (y, m) => {
+      const k = monthKey(y, m);
       const recs = k === mKey ? records : history[k];
-      const total = Object.values(recs || {}).reduce((s, r) => s + recordTotal(r), 0);
-      const parts = k.split("-");
-      const y = parts[0], m = parts[1];
-      return { monthName: THAI_MONTHS[Number(m)-1], year: y, total: Math.round(total) };
-    });
-  }, [history, records, mKey]);
+      if (!recs) return 0;
+      return Math.round(Object.values(recs).reduce((s,r)=>s+recordTotal(r),0));
+    };
+    return THAI_MONTHS.map((name, i) => ({
+      monthName: name,
+      prev: getTotal(year - 1, i + 1),
+      curr: getTotal(year, i + 1),
+    }));
+  }, [history, records, mKey, year]);
 
   if (!ready) {
     return html`<div style=${{ fontFamily:"'Sarabun', sans-serif", padding:40, color:"#4B5A57" }}>กำลังโหลดข้อมูล…</div>`;
@@ -810,7 +871,7 @@ function App() {
       <main style=${{ padding:28 }}>
         ${tab === "dashboard" && html`<${Dashboard} companies=${companies} companyTotals=${companyTotals} grandTotal=${grandTotal}
             mobileTotal=${mobileTotal} internetTotal=${internetTotal} unpaidCount=${unpaidCount}
-            overdueCount=${overdueCount} trendData=${trendData} monthLabel=${monthLabel} lines=${lines} />`}
+            overdueCount=${overdueCount} yearCompareData=${yearCompareData} currentYear=${year} monthLabel=${monthLabel} lines=${lines} />`}
         ${tab === "entry" && html`<${EntryTab} companies=${companies} grouped=${grouped} records=${records} updateField=${updateField}
             expanded=${expanded} setExpanded=${setExpanded} dirty=${dirty} saving=${saving} saveMonth=${saveMonth}
             monthLabel=${monthLabel} />`}
@@ -836,7 +897,7 @@ function BigStat({ label, value, accent, suffix, symbol, big }) {
   `;
 }
 
-function Dashboard({ companies, companyTotals, grandTotal, mobileTotal, internetTotal, unpaidCount, overdueCount, trendData, monthLabel, lines }) {
+function Dashboard({ companies, companyTotals, grandTotal, mobileTotal, internetTotal, unpaidCount, overdueCount, yearCompareData, currentYear, monthLabel, lines }) {
   const networkCounts = useMemo(() => {
     const counts = {};
     (lines || []).filter(l => l.active).forEach(l => {
@@ -845,6 +906,8 @@ function Dashboard({ companies, companyTotals, grandTotal, mobileTotal, internet
     });
     return counts;
   }, [lines]);
+
+  const hasAnyData = yearCompareData.some(d => d.prev > 0 || d.curr > 0);
 
   return html`
     <div style=${{ display:"flex", flexDirection:"column", gap:22 }}>
@@ -882,10 +945,20 @@ function Dashboard({ companies, companyTotals, grandTotal, mobileTotal, internet
       </div>
 
       <div style=${{ background:"var(--card)", border:"1px solid var(--line)", borderRadius:8, padding:18 }}>
-        <div className="ptk-serif" style=${{ fontSize:16, fontWeight:700, marginBottom:12 }}>แนวโน้มค่าใช้จ่ายรายเดือน</div>
-        ${trendData.length === 0
+        <div style=${{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12, flexWrap:"wrap", gap:10 }}>
+          <div className="ptk-serif" style=${{ fontSize:16, fontWeight:700 }}>เปรียบเทียบค่าใช้จ่ายรายเดือน ปีต่อปี</div>
+          <div style=${{ display:"flex", gap:18 }}>
+            <span style=${{ display:"flex", alignItems:"center", gap:7, fontSize:14.5, fontWeight:600, color:"var(--ink)" }}>
+              <span style=${{ width:16, height:16, borderRadius:3, background:"#EA7317", display:"inline-block" }}></span> ปี ${currentYear - 1}
+            </span>
+            <span style=${{ display:"flex", alignItems:"center", gap:7, fontSize:14.5, fontWeight:600, color:"var(--ink)" }}>
+              <span style=${{ width:16, height:16, borderRadius:3, background:"#2563EB", display:"inline-block" }}></span> ปี ${currentYear}
+            </span>
+          </div>
+        </div>
+        ${!hasAnyData
           ? html`<div style=${{ color:"var(--ink-soft)", fontSize:13 }}>ยังไม่มีข้อมูลบันทึกไว้ให้แสดงกราฟ</div>`
-          : html`<${SimpleBarChart} data=${trendData} />`}
+          : html`<${YearCompareChart} data=${yearCompareData} />`}
       </div>
     </div>
   `;
