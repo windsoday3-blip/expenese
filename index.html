@@ -349,6 +349,7 @@ const THAI_MONTHS = ["มกราคม","กุมภาพันธ์","ม�
 const THAI_MONTHS_SHORT = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
 
 const DEPTS = ["วน", "สก", "สนญ"];
+const DEPT_LABELS = { "วน": "วน (วังน้อย)", "สก": "สก (สระแก้ว)", "สนญ": "สนญ (สำนักงานใหญ่)" };
 
 const COMPANIES = [
   "บริษัท เค.เอส.พรีเมียร์ โปรดักส์ จำกัด",
@@ -1004,12 +1005,19 @@ function EntryRow({ l, rec, isOpen, toggle, updateField }) {
       ${isOpen && html`
         <tr style=${{ borderBottom:"1px solid var(--line)" }}>
           <${Td} colSpan=${8}>
+            ${l.contract && html`
+              <div style=${{ padding:"6px 4px 0" }}>
+                <${Field} label="🔒 เงื่อนไขสัญญา (อ่านอย่างเดียว — แก้ไขได้ที่ 📇 ทะเบียนเบอร์/บริการ)">
+                  <div style=${{ fontSize:12.5, color:"var(--ink-soft)", background:"#00000008", border:"1px solid var(--line)", borderRadius:3, padding:"7px 9px", whiteSpace:"pre-wrap" }}>${l.contract}</div>
+                </${Field}>
+              </div>
+            `}
             <div style=${{ padding:"6px 4px 4px" }}>
               <${Field} label="หมายเหตุ">
                 <textarea className="ptk-input" style=${{ fontFamily:"'Sarabun',sans-serif", fontSize:12, minHeight:64, resize:"vertical", lineHeight:1.5, width:"100%" }} rows=${3} placeholder="หมายเหตุ" value=${rec.extraNote} onChange=${e=>updateField(l.id,"extraNote",e.target.value)}></textarea>
               </${Field}>
             </div>
-            <div style=${{ display:"grid", gridTemplateColumns:"2fr 1.3fr 1fr 1fr", gap:12, padding:"6px 4px 4px" }}>
+            <div style=${{ display:"grid", gridTemplateColumns:"2fr 1.3fr 1fr 1fr", gap:12, padding:"6px 4px 12px" }}>
               <${Field} label="เลขที่บิล">
                 <input className="ptk-input" value=${rec.billNumber} onChange=${e=>updateField(l.id,"billNumber",e.target.value)} />
               </${Field}>
@@ -1025,13 +1033,6 @@ function EntryRow({ l, rec, isOpen, toggle, updateField }) {
                 <input className="ptk-input" type="number" placeholder="GB" value=${rec.dataUsageGB} onChange=${e=>updateField(l.id,"dataUsageGB",e.target.value)} />
               </${Field}>
             </div>
-            ${l.contract && html`
-              <div style=${{ padding:"0 4px 12px" }}>
-                <${Field} label="เงื่อนไขสัญญา (จากทะเบียน)">
-                  <div style=${{ fontSize:12, color:"var(--ink-soft)", paddingTop:5 }}>${l.contract}</div>
-                </${Field}>
-              </div>
-            `}
           </${Td}>
         </tr>
       `}
@@ -1039,14 +1040,14 @@ function EntryRow({ l, rec, isOpen, toggle, updateField }) {
   `;
 }
 
-function LineGroupTable({ label, items, records, expanded, toggle, updateField }) {
+function LineGroupTable({ label, items, records, expanded, toggle, updateField, showAmount }) {
   if (!items.length) return null;
   const subtotal = items.reduce((s,l)=>s+recordTotal(records[l.id]),0);
   return html`
     <div>
       <div style=${{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"9px 16px", background:"var(--teal)" }}>
         <span style=${{ fontSize:13.5, fontWeight:700, color:"#fff", letterSpacing:0.3 }}>${label}</span>
-        <span className="ptk-mono" style=${{ fontSize:13, fontWeight:600, color:"#fff" }}>${baht(subtotal)} บาท</span>
+        ${showAmount && html`<span className="ptk-mono" style=${{ fontSize:13, fontWeight:600, color:"#fff" }}>${baht(subtotal)} บาท</span>`}
       </div>
       <div className="ptk-scroll" style=${{ overflowX:"auto" }}>
         <table style=${{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
@@ -1103,8 +1104,8 @@ function EntryTab({ companies, grouped, records, updateField, expanded, setExpan
               <span className="ptk-serif" style=${{ fontWeight:700, fontSize:14.5 }}>${c}</span>
               <span className="ptk-mono" style=${{ fontSize:14 }}>${baht(subtotal)} บาท</span>
             </div>
-            <${LineGroupTable} label="📱 โทรศัพท์มือถือ" items=${mobileItems} records=${records} expanded=${expanded} toggle=${toggle} updateField=${updateField} />
-            <${LineGroupTable} label="📶 อินเทอร์เน็ต (3BB)" items=${internetItems} records=${records} expanded=${expanded} toggle=${toggle} updateField=${updateField} />
+            <${LineGroupTable} label="📱 โทรศัพท์มือถือ" items=${mobileItems} records=${records} expanded=${expanded} toggle=${toggle} updateField=${updateField} showAmount=${mobileItems.length>0 && internetItems.length>0} />
+            <${LineGroupTable} label="📶 อินเทอร์เน็ต (3BB)" items=${internetItems} records=${records} expanded=${expanded} toggle=${toggle} updateField=${updateField} showAmount=${mobileItems.length>0 && internetItems.length>0} />
           </div>
         `;
       })}
@@ -1114,7 +1115,7 @@ function EntryTab({ companies, grouped, records, updateField, expanded, setExpan
 /* ---------- Lines Tab ---------- */
 
 function LinesTab({ lines, companies, saveLines, showForm, setShowForm, editingLine, setEditingLine }) {
-  const blank = { id:"", type:"mobile", company:companies[0], number:"", network:"AIS", user:"", department:"วน", defaultPackage:"", contract:"", active:true };
+  const blank = { id:"", type:"mobile", company:companies[0], number:"", network:"AIS", planType:"รายเดือน", user:"", department:"วน", defaultPackage:"", contract:"", active:true };
   const [form, setForm] = useState(blank);
 
   const openNew = () => { setForm(blank); setEditingLine(null); setShowForm(true); };
@@ -1149,28 +1150,40 @@ function LinesTab({ lines, companies, saveLines, showForm, setShowForm, editingL
       </div>
 
       ${showForm && html`
-        <div style=${{ background:"var(--card)", border:"1px solid var(--brass)", borderRadius:8, padding:16, display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))", gap:10 }}>
-          <${Field} label="ประเภท">
-            <select className="ptk-input" value=${form.type} onChange=${e=>setForm({...form,type:e.target.value})}>
-              <option value="mobile">มือถือ</option><option value="internet">อินเทอร์เน็ต</option>
-            </select>
+        <div style=${{ background:"var(--card)", border:"1px solid var(--brass)", borderRadius:8, padding:16, display:"flex", flexDirection:"column", gap:10 }}>
+          <div style=${{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))", gap:10 }}>
+            <${Field} label="ประเภท">
+              <select className="ptk-input" value=${form.type} onChange=${e=>setForm({...form,type:e.target.value})}>
+                <option value="mobile">มือถือ</option><option value="internet">อินเทอร์เน็ต</option>
+              </select>
+            </${Field}>
+            <${Field} label="บริษัท">
+              <select className="ptk-input" value=${form.company} onChange=${e=>setForm({...form,company:e.target.value})}>
+                ${companies.map(c=>html`<option key=${c} value=${c}>${c}</option>`)}
+              </select>
+            </${Field}>
+            <${Field} label="เบอร์ / รหัส"><input className="ptk-input" value=${form.number} onChange=${e=>setForm({...form,number:e.target.value})} /></${Field}>
+            <div style=${{ maxWidth:110 }}>
+              <${Field} label="เครือข่าย"><input className="ptk-input" value=${form.network} onChange=${e=>setForm({...form,network:e.target.value})} /></${Field}>
+            </div>
+            <${Field} label="รายเดือน / เติมเงิน">
+              <select className="ptk-input" value=${form.planType || "รายเดือน"} onChange=${e=>setForm({...form,planType:e.target.value})}>
+                <option value="รายเดือน">รายเดือน</option>
+                <option value="เติมเงิน">เติมเงิน</option>
+              </select>
+            </${Field}>
+            <${Field} label="ชื่อผู้ใช้"><input className="ptk-input" value=${form.user} onChange=${e=>setForm({...form,user:e.target.value})} /></${Field}>
+            <${Field} label="แผนก">
+              <select className="ptk-input" value=${form.department} onChange=${e=>setForm({...form,department:e.target.value})}>
+                ${DEPTS.map(d=>html`<option key=${d} value=${d}>${DEPT_LABELS[d] || d}</option>`)}
+              </select>
+            </${Field}>
+            <${Field} label="แพ็คเกจเริ่มต้น (บาท)"><input className="ptk-input" type="number" value=${form.defaultPackage} onChange=${e=>setForm({...form,defaultPackage:e.target.value})} /></${Field}>
+          </div>
+          <${Field} label="เงื่อนไขสัญญา">
+            <textarea className="ptk-input" style=${{ fontFamily:"'Sarabun',sans-serif", fontSize:12.5, minHeight:100, resize:"vertical", lineHeight:1.6, width:"100%" }} rows=${5} value=${form.contract} onChange=${e=>setForm({...form,contract:e.target.value})}></textarea>
           </${Field}>
-          <${Field} label="บริษัท">
-            <select className="ptk-input" value=${form.company} onChange=${e=>setForm({...form,company:e.target.value})}>
-              ${companies.map(c=>html`<option key=${c} value=${c}>${c}</option>`)}
-            </select>
-          </${Field}>
-          <${Field} label="เบอร์ / รหัส"><input className="ptk-input" value=${form.number} onChange=${e=>setForm({...form,number:e.target.value})} /></${Field}>
-          <${Field} label="เครือข่าย"><input className="ptk-input" value=${form.network} onChange=${e=>setForm({...form,network:e.target.value})} /></${Field}>
-          <${Field} label="ผู้ใช้ / สถานที่"><input className="ptk-input" value=${form.user} onChange=${e=>setForm({...form,user:e.target.value})} /></${Field}>
-          <${Field} label="แผนก">
-            <select className="ptk-input" value=${form.department} onChange=${e=>setForm({...form,department:e.target.value})}>
-              ${DEPTS.map(d=>html`<option key=${d} value=${d}>${d}</option>`)}
-            </select>
-          </${Field}>
-          <${Field} label="แพ็คเกจเริ่มต้น (บาท)"><input className="ptk-input" type="number" value=${form.defaultPackage} onChange=${e=>setForm({...form,defaultPackage:e.target.value})} /></${Field}>
-          <${Field} label="เงื่อนไขสัญญา"><input className="ptk-input" value=${form.contract} onChange=${e=>setForm({...form,contract:e.target.value})} /></${Field}>
-          <div style=${{ display:"flex", gap:8, alignItems:"end" }}>
+          <div style=${{ display:"flex", gap:8, alignItems:"center" }}>
             <button onClick=${submit} style=${{ background:"var(--teal)", color:"#fff", border:"none", borderRadius:6, padding:"9px 16px", fontWeight:600, cursor:"pointer" }}>บันทึก</button>
             <button onClick=${()=>setShowForm(false)} style=${{ background:"none", border:"1px solid var(--line)", borderRadius:6, padding:"9px 12px", cursor:"pointer" }}>✕</button>
           </div>
