@@ -601,6 +601,26 @@ function App() {
 
   const mKey = monthKey(year, month);
 
+  // กด Enter เพื่อย้ายไปช่องกรอกถัดไป แทนที่จะต้องคลิกเมาส์ (ยกเว้นในกล่องข้อความหลายบรรทัด ที่ Enter ใช้ขึ้นบรรทัดใหม่ตามปกติ)
+  useEffect(() => {
+    function handleEnterNav(e) {
+      if (e.key !== "Enter") return;
+      const tag = e.target.tagName;
+      if (tag !== "INPUT" && tag !== "SELECT") return;
+      e.preventDefault();
+      const focusable = Array.from(document.querySelectorAll('input, select, textarea, button'))
+        .filter(el => !el.disabled && el.tabIndex !== -1 && el.offsetParent !== null);
+      const idx = focusable.indexOf(e.target);
+      if (idx > -1 && idx < focusable.length - 1) {
+        const next = focusable[idx + 1];
+        next.focus();
+        if (next.select && (next.tagName === "INPUT")) next.select();
+      }
+    }
+    document.addEventListener("keydown", handleEnterNav);
+    return () => document.removeEventListener("keydown", handleEnterNav);
+  }, []);
+
   const refreshHistory = useCallback(async () => {
     try {
       const keys = await storeListKeys("ptk:monthly:");
@@ -971,7 +991,8 @@ function EntryRow({ l, rec, isOpen, toggle, updateField }) {
   const status = computeStatus(rec);
   return html`
     <${Fragment}>
-      <tr className="ptk-row" style=${{ borderBottom: isOpen ? "none" : "1px solid var(--line)" }}>
+      <tr className="ptk-row" style=${{ borderBottom: isOpen ? "none" : "1px solid var(--line)", background: isOpen ? "#2F6F6216" : undefined,
+          boxShadow: isOpen ? "inset 0 2px 0 0 var(--teal), inset 2px 0 0 0 var(--teal), inset -2px 0 0 0 var(--teal)" : "none" }}>
         <${Td}>
           <button onClick=${()=>toggle(l.id)} style=${{ background:"none", border:"none", cursor:"pointer", color:"var(--ink-soft)" }}>
             ${isOpen ? "▾" : "▸"}
@@ -1003,8 +1024,9 @@ function EntryRow({ l, rec, isOpen, toggle, updateField }) {
         </${Td}>
       </tr>
       ${isOpen && html`
-        <tr style=${{ borderBottom:"1px solid var(--line)" }}>
+        <tr style=${{ boxShadow: "inset 2px 0 0 0 var(--teal), inset -2px 0 0 0 var(--teal), inset 0 -2px 0 0 var(--teal)" }}>
           <${Td} colSpan=${8}>
+            <div style=${{ background:"#2F6F6208", padding:"0 4px", borderRadius:"0 0 6px 6px" }}>
             ${l.contract && html`
               <div style=${{ padding:"6px 4px 0" }}>
                 <${Field} label="🔒 เงื่อนไขสัญญา (อ่านอย่างเดียว — แก้ไขได้ที่ 📇 ทะเบียนเบอร์/บริการ)">
@@ -1032,6 +1054,7 @@ function EntryRow({ l, rec, isOpen, toggle, updateField }) {
               <${Field} label="เน็ตที่ใช้ (GB)">
                 <input className="ptk-input" type="text" placeholder="เน็ตที่ใช้" value=${rec.dataUsageGB} onChange=${e=>updateField(l.id,"dataUsageGB",e.target.value)} />
               </${Field}>
+            </div>
             </div>
           </${Td}>
         </tr>
