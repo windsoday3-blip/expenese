@@ -1017,7 +1017,7 @@ function EntryRow({ l, rec, isOpen, toggle, updateField }) {
                 <textarea className="ptk-input" style=${{ fontFamily:"'Sarabun',sans-serif", fontSize:12, minHeight:64, resize:"vertical", lineHeight:1.5, width:"100%" }} rows=${3} placeholder="หมายเหตุ" value=${rec.extraNote} onChange=${e=>updateField(l.id,"extraNote",e.target.value)}></textarea>
               </${Field}>
             </div>
-            <div style=${{ display:"grid", gridTemplateColumns:"2fr 1.3fr 1fr 1fr", gap:12, padding:"6px 4px 12px" }}>
+            <div style=${{ display:"grid", gridTemplateColumns:"1.5fr 1fr 1.4fr 1.4fr", gap:12, padding:"6px 4px 12px" }}>
               <${Field} label="เลขที่บิล">
                 <input className="ptk-input" value=${rec.billNumber} onChange=${e=>updateField(l.id,"billNumber",e.target.value)} />
               </${Field}>
@@ -1026,11 +1026,11 @@ function EntryRow({ l, rec, isOpen, toggle, updateField }) {
               </${Field}>
               <${Field} label="นาทีที่โทร">
                 ${l.type === "mobile"
-                  ? html`<input className="ptk-input" type="number" placeholder="นาที" value=${rec.callMinutes} onChange=${e=>updateField(l.id,"callMinutes",e.target.value)} />`
+                  ? html`<input className="ptk-input" type="text" placeholder="นาทีที่โทร" value=${rec.callMinutes} onChange=${e=>updateField(l.id,"callMinutes",e.target.value)} />`
                   : html`<span style=${{ color:"var(--ink-soft)" }}>—</span>`}
               </${Field}>
               <${Field} label="เน็ตที่ใช้ (GB)">
-                <input className="ptk-input" type="number" placeholder="GB" value=${rec.dataUsageGB} onChange=${e=>updateField(l.id,"dataUsageGB",e.target.value)} />
+                <input className="ptk-input" type="text" placeholder="เน็ตที่ใช้" value=${rec.dataUsageGB} onChange=${e=>updateField(l.id,"dataUsageGB",e.target.value)} />
               </${Field}>
             </div>
           </${Td}>
